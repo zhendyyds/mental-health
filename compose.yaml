@@ -1,0 +1,130 @@
+name: healthagent
+
+services:
+  mysql:
+    image: mysql:8.4.13
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-mental_health_assistant}
+      MYSQL_USER: ${MYSQL_USER:-healthagent}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_ROOT_HOST: localhost
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mental-health-assistant-backend/db/baseline/20261106_schema.sql:/docker-entrypoint-initdb.d/010-schema.sql:ro
+      - ./mental-health-assistant-backend/db/migrations/20261107_add_knowledge_index.sql:/docker-entrypoint-initdb.d/020-knowledge-index.sql:ro
+      - ./mental-health-assistant-backend/db/migrations/20261107_allow_knowledge_qa_requests.sql:/docker-entrypoint-initdb.d/030-knowledge-qa.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          MYSQL_PWD="$${MYSQL_PASSWORD}" mysql --protocol=TCP -h 127.0.0.1
+          -u "$${MYSQL_USER}" -D "$${MYSQL_DATABASE}" --connect-timeout=2 -Nse 'SELECT 1'
+      interval: 5s
+      timeout: 4s
+      retries: 24
+      start_period: 20s
+    stop_grace_period: 45s
+    networks: [data]
+
+  qdrant:
+    image: qdrant/qdrant:v1.16.3
+    restart: unless-stopped
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -ec
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/6333
+          printf 'GET /readyz HTTP/1.0\r\n\r\n' >&3
+          read -r status <&3
+          [[ "$$status" == HTTP/*" 200 "* ]]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    stop_grace_period: 30s
+    networks: [data]
+
+  backend:
+    build: ./mental-health-assistant-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: container
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-mental_health_assistant}?connectionTimeZone=Asia/Shanghai&useUnicode=true&characterEncoding=UTF-8
+      DB_USERNAME: ${MYSQL_USER:-healthagent}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      AI_BASE_URL: ${AI_BASE_URL:-https://api.deepseek.com}
+      AI_COMPLETIONS_PATH: ${AI_COMPLETIONS_PATH:-/chat/completions}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-deepseek-flash}
+      AI_API_KEY: ${AI_API_KEY:?set AI_API_KEY in .env}
+      FILE_UPLOAD_DIR: /app/upload
+      RAG_ENABLED: ${RAG_ENABLED:-false}
+      RAG_VERSION: ${RAG_VERSION:-knowledge_v1}
+      RAG_COLLECTION: ${RAG_COLLECTION:-healthagent_knowledge_v1}
+      RAG_EMBEDDING_PROVIDER: ${RAG_EMBEDDING_PROVIDER:-dashscope}
+      RAG_EMBEDDING_BASE_URL: ${RAG_EMBEDDING_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      RAG_EMBEDDING_PATH: ${RAG_EMBEDDING_PATH:-/embeddings}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-text-embedding-v4}
+      RAG_EMBEDDING_API_KEY: ${RAG_EMBEDDING_API_KEY:-}
+      RAG_EMBEDDING_DIMENSION: ${RAG_EMBEDDING_DIMENSION:-1024}
+      RAG_QDRANT_HOST: qdrant
+      RAG_QDRANT_PORT: '6334'
+    volumes:
+      - uploads:/app/upload
+    healthcheck:
+      test: [CMD, wget, -q, -T, '4', -O, /dev/null, http://127.0.0.1:8082/internal/health/ready]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 40s
+    networks: [edge, data]
+
+  frontend:
+    build: ./mental-health-assistant-fronted
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-8080}:8080"
+    healthcheck:
+      test: [CMD, wget, -q, -T, '3', -O, /dev/null, http://127.0.0.1:8080/healthz]
+      interval: 5s
+      timeout: 4s
+      retries: 8
+    networks: [edge]
+
+  qdrant-init:
+    image: python:3.13-alpine
+    profiles: [rag-init]
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    environment:
+      RAG_COLLECTION: ${RAG_COLLECTION:-healthagent_knowledge_v1}
+      RAG_EMBEDDING_DIMENSION: ${RAG_EMBEDDING_DIMENSION:-1024}
+    volumes:
+      - ./deployment/qdrant/init_collection.py:/init_collection.py:ro
+    command: [python, /init_collection.py]
+    networks: [data]
+
+networks:
+  edge:
+  data:
+    internal: true
+
+volumes:
+  mysql-data:
+  qdrant-data:
+  uploads:

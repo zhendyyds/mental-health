@@ -1,0 +1,32 @@
+# Load a separate local copy as additional Spring configuration.
+# Apply the knowledge-index migration and pre-create the named dense cosine collection before enabling.
+app:
+  rag:
+    enabled: false
+    version: knowledge_v1
+    collection-name: healthagent_knowledge_v1
+    embedding-provider: dashscope
+    embedding-base-url: "${RAG_EMBEDDING_BASE_URL:}"
+    embedding-path: /embeddings
+    embedding-api-key: "${RAG_EMBEDDING_API_KEY:}"
+    embedding-model: text-embedding-v4
+    dimension: 1024
+    chunk-size: 600
+    chunk-overlap: 100
+    embedding-batch-size: 8
+    embedding-input-units: 32768
+    embedding-max-concurrent: 2
+    embedding-requests-per-minute: 30
+    embedding-daily-calls: 300
+    embedding-connect-timeout-ms: 5000
+    embedding-read-timeout-ms: 25000
+    qdrant-host: 127.0.0.1
+    qdrant-port: 6334
+    qdrant-tls: false
+    qdrant-api-key: "${RAG_QDRANT_API_KEY:}"
+    qdrant-timeout-ms: 5000
+    lease-seconds: 60
+    poll-interval-ms: 2000
+    top-k: 10
+    evidence-limit: 6
+    score-threshold: 0.30

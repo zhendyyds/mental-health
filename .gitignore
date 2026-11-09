@@ -1,0 +1,8 @@
+/.env
+/.env.*
+!/.env.example
+
+# Local uploads and generated verification output
+/mental-health-assistant-backend/upload/
+/docs/verification/
+*.log

@@ -1,0 +1,51 @@
+spring:
+  config:
+    # External local values work when launched from the backend or repository root.
+    import:
+      - optional:file:./config/application-local.yml
+      - optional:file:./mental-health-assistant-backend/config/application-local.yml
+  servlet:
+    multipart:
+      max-file-size: "${MAX_FILE_SIZE:${local.spring.servlet.multipart.max-file-size:5MB}}"
+      max-request-size: "${MAX_REQUEST_SIZE:${local.spring.servlet.multipart.max-request-size:10MB}}"
+  datasource:
+    url: "${DB_URL:${local.spring.datasource.url:jdbc:mysql://localhost:3306/mental_health_assistant}}"
+    username: "${DB_USERNAME:${local.spring.datasource.username:root}}"
+    password: "${DB_PASSWORD:${local.spring.datasource.password:}}"
+  ai:
+    retry:
+      max-attempts: 1
+    openai:
+      chat:
+        options:
+          model: "${AI_CHAT_MODEL:${local.spring.ai.openai.chat.options.model:replace-with-chat-model}}"
+          tool-calling:
+            enabled: "${AI_TOOL_CALLING_ENABLED:${local.spring.ai.openai.chat.options.tool-calling.enabled:false}}"
+        completions-path: "${AI_COMPLETIONS_PATH:${local.spring.ai.openai.chat.completions-path:/v1/chat/completions}}"
+      api-key: "${AI_API_KEY:${local.spring.ai.openai.api-key:}}"
+      base-url: "${AI_BASE_URL:${local.spring.ai.openai.base-url:https://api.openai.com}}"
+  security:
+    user:
+      name: "${SECURITY_USER_NAME:${local.spring.security.user.name:disabled-default-user}}"
+      password: "${SECURITY_USER_PASSWORD:${local.spring.security.user.password:}}"
+
+server:
+  port: "${SERVER_PORT:${local.server.port:8082}}"
+  tomcat:
+    max-swallow-size: "${MAX_SWALLOW_SIZE:${local.server.tomcat.max-swallow-size:10MB}}"
+
+file:
+  upload-dir: "${FILE_UPLOAD_DIR:${UPLOAD_DIR:${local.file.upload-dir:./upload}}}"
+
+jwt:
+  secret: "${JWT_SECRET:${local.jwt.secret}}"
+  expiration: "${JWT_EXPIRATION:${local.jwt.expiration:86400000}}"
+  refresh-expiration: "${JWT_REFRESH_EXPIRATION:${local.jwt.refresh-expiration:604800000}}"
+  header: token
+  token-prefix: ""
+
+app:
+  ai:
+    http:
+      connect-timeout: 5s
+      read-timeout: 55s

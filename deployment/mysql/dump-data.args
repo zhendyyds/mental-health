@@ -1,0 +1,14 @@
+--single-transaction
+--quick
+--no-create-info
+--skip-add-drop-table
+--skip-lock-tables
+--skip-add-locks
+--skip-disable-keys
+--skip-no-autocommit
+--skip-triggers
+--no-tablespaces
+--set-gtid-purged=OFF
+--complete-insert
+--hex-blob
+--default-character-set=utf8mb4

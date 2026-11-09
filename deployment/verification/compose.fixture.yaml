@@ -1,0 +1,37 @@
+# Only for an isolated project with fictional data and the fixture .env.
+services:
+  ai-stub:
+    image: python:3.13-alpine
+    command: [python, /fixture/model_stub.py]
+    volumes:
+      - ./deployment/verification/model_stub.py:/fixture/model_stub.py:ro
+      - ${BATCH7_TLS_DIR:?prepare the fixture TLS directory}:/tls:ro
+    healthcheck:
+      test: [CMD, python, -c, "import ssl,urllib.request; urllib.request.urlopen('https://localhost/health',context=ssl._create_unverified_context(),timeout=2).close()"]
+      interval: 3s
+      timeout: 4s
+      retries: 10
+    networks: [edge]
+
+  backend:
+    depends_on:
+      ai-stub:
+        condition: service_healthy
+    environment:
+      AI_BASE_URL: https://ai-stub
+      AI_COMPLETIONS_PATH: /v1/chat/completions
+      AI_CHAT_MODEL: fixture-chat
+      AI_API_KEY: fixture-chat-key
+      RAG_ENABLED: 'true'
+      RAG_VERSION: fixture_batch7_v1
+      RAG_COLLECTION: fixture_batch7
+      RAG_EMBEDDING_PROVIDER: openai-compatible
+      RAG_EMBEDDING_BASE_URL: https://ai-stub/v1
+      RAG_EMBEDDING_PATH: /embeddings
+      RAG_EMBEDDING_MODEL: fixture-embedding
+      RAG_EMBEDDING_DIMENSION: '8'
+      RAG_EMBEDDING_API_KEY: fixture-embedding-key
+      JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/fixture-trust/ca.p12 -Djavax.net.ssl.trustStorePassword=fixture-only
+      SPRING_APPLICATION_JSON: '{"app":{"rag":{"qa":{"timeout-ms":3500}}}}'
+    volumes:
+      - ${BATCH7_TLS_DIR:?prepare the fixture TLS directory}/ca.p12:/fixture-trust/ca.p12:ro

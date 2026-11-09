@@ -1,0 +1,36 @@
+# Copy to config/application-local.yml and fill values locally; that file is ignored.
+# Start from the backend directory or repository root. This file is not a profile.
+# PowerShell does not load .env automatically. Set $env:AI_API_KEY etc. explicitly,
+# or use the ignored YAML. Environment values take priority over local defaults.
+local:
+  spring:
+    datasource:
+      url: jdbc:mysql://localhost:3306/mental_health_assistant
+      username: replace-with-database-user
+      password: replace-with-database-password
+    ai:
+      openai:
+        api-key: replace-with-model-api-key
+        base-url: https://api.openai.com
+        chat:
+          completions-path: /v1/chat/completions
+          options:
+            model: replace-with-chat-model
+  jwt:
+    secret: replace-with-a-unique-random-signing-secret
+  file:
+    upload-dir: ./upload
+
+# Optional single-instance call protection overrides (non-sensitive).
+app:
+  ai:
+    protection:
+      max-concurrent: 4
+      user-requests-per-minute: 6
+      user-daily-calls: 100
+      global-daily-calls: 1000
+      max-input-units: 32768
+      reserved-input-units: 1024
+      max-output-tokens: 1024
+      max-reply-bytes: 65536
+      max-reply-fragments: 4096
